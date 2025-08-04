@@ -48,7 +48,7 @@ namespace LAMMPS_NS {
     static constexpr int MAXLINE    = 1024;
     static constexpr int CHUNK      = 1024;
     static constexpr int DELTA_BODY = 10000;
-    static constexpr int ATTRIBUTE_PERBODY = 20;
+    static constexpr int ATTRIBUTE_PERBODY = 32;
   }
 }
 

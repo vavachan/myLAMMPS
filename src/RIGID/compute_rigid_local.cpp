@@ -21,6 +21,7 @@
 #include "fix_rigid_small.h"
 #include "memory.h"
 #include "error.h"
+#include <iostream>
 
 using namespace LAMMPS_NS;
 
@@ -117,7 +118,6 @@ ComputeRigidLocal::~ComputeRigidLocal()
 void ComputeRigidLocal::init()
 {
   // set fixrigid
-
   int ifix = modify->find_fix(idrigid);
   if (ifix < 0)
     error->all(FLERR,"FixRigidSmall ID for compute rigid/local does not exist");

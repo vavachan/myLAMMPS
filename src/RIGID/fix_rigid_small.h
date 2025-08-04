@@ -141,6 +141,7 @@ class FixRigidSmall : public Fix {
 
   int **counts;        // counts of atom types in bodies
   double **itensor;    // 6 space-frame components of inertia tensor
+  double **espace_momment_of_inertia;    // 6 space-frame components of inertia tensor
 
   // mass per body, accessed by granular pair styles
 

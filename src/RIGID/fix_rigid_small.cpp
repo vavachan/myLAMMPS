@@ -60,7 +60,8 @@ FixRigidSmall::FixRigidSmall(LAMMPS *lmp, int narg, char **arg) :
   xcmimage(nullptr), displace(nullptr), eflags(nullptr), orient(nullptr), dorient(nullptr),
   avec_ellipsoid(nullptr), avec_line(nullptr), avec_tri(nullptr), counts(nullptr),
   itensor(nullptr), mass_body(nullptr), langextra(nullptr), random(nullptr),
-  id_dilate(nullptr), id_gravity(nullptr), onemols(nullptr), external_forces(nullptr), external_torques(nullptr)
+  id_dilate(nullptr), id_gravity(nullptr), onemols(nullptr), external_forces(nullptr), external_torques(nullptr),
+	espace_momment_of_inertia(nullptr)
 {
   int i;
 
@@ -1098,26 +1099,27 @@ void FixRigidSmall::compute_forces_and_torques()
 
 void FixRigidSmall::add_external_forces_and_torques()
 {
-  //int ibody;
-  //double *xcm,*fcm,*tcm;
-  //for (ibody = 0; ibody < nlocal_body; ibody++) {
-  //  int globalrigidbodyID=atom->molecule[body[ibody].ilocal];
-  //  //std::cout<<"rigid body ID "<<atom->molecule[body[ibody].ilocal]<<"\n";
-  //  //std::cout<<external_forces[3*(globalrigidbodyID-1)+0]<<"\t";
-  //  //std::cout<<external_forces[3*(globalrigidbodyID-1)+1]<<"\t";
-  //  //std::cout<<external_forces[3*(globalrigidbodyID-1)+2]<<"\t";
-  //  //std::cout<<external_torques[3*(globalrigidbodyID-1)+0]<<"\t";
-  //  //std::cout<<external_torques[3*(globalrigidbodyID-1)+1]<<"\t";
-  //  //std::cout<<external_torques[3*(globalrigidbodyID-1)+2]<<"\n";
-  //  fcm = body[ibody].fcm;
-  //  fcm[0] += external_forces[3*(globalrigidbodyID-1)+0];
-  //  fcm[1] += external_forces[3*(globalrigidbodyID-1)+1];
-  //  fcm[2] += external_forces[3*(globalrigidbodyID-1)+2];
-  //  tcm = body[ibody].torque;
-  //  tcm[0] += external_torques[3*(globalrigidbodyID-1)+0];// langextra[ibody][3];
-  //  tcm[1] += external_torques[3*(globalrigidbodyID-1)+1];// langextra[ibody][4];
-  //  tcm[2] += external_torques[3*(globalrigidbodyID-1)+2];// langextra[ibody][5];
-  //}
+    int ibody;
+    double *xcm,*fcm,*tcm;
+    for (ibody = 0; ibody < nlocal_body; ibody++) {
+      int globalrigidbodyID=atom->molecule[body[ibody].ilocal];
+      //std::cout<<"rigid body ID "<<atom->molecule[body[ibody].ilocal]<<"\t";
+      //std::cout<<external_forces[3*(globalrigidbodyID-1)+0]<<"\t";
+      //std::cout<<external_forces[3*(globalrigidbodyID-1)+1]<<"\t";
+      //std::cout<<external_forces[3*(globalrigidbodyID-1)+2]<<"\t";
+      //std::cout<<external_torques[3*(globalrigidbodyID-1)+0]<<"\t";
+      //std::cout<<external_torques[3*(globalrigidbodyID-1)+1]<<"\t";
+      //std::cout<<external_torques[3*(globalrigidbodyID-1)+2]<<"\n";
+      fcm = body[ibody].fcm;
+      fcm[0] += external_forces[3*(globalrigidbodyID-1)+0];
+      fcm[1] += external_forces[3*(globalrigidbodyID-1)+1];
+      fcm[2] += external_forces[3*(globalrigidbodyID-1)+2];
+      tcm = body[ibody].torque;
+      tcm[0] += external_torques[3*(globalrigidbodyID-1)+0];// langextra[ibody][3];
+      tcm[1] += external_torques[3*(globalrigidbodyID-1)+1];// langextra[ibody][4];
+      tcm[2] += external_torques[3*(globalrigidbodyID-1)+2];// langextra[ibody][5];
+      //std::cout<<fcm[0]<<"\t"<<fcm[1]<<"\t"<<fcm[2]<<"\n";
+    }
 
 }
 
@@ -2038,8 +2040,12 @@ void FixRigidSmall::setup_bodies_static()
   // symmetric 3x3 inertia tensor stored in Voigt notation as 6-vector
 
   memory->create(itensor,nlocal_body+nghost_body,6,"rigid/small:itensor");
+  memory->create(espace_momment_of_inertia,nlocal_body+nghost_body,12,"rigid/small:espace_momment_of_inertia");
   for (ibody = 0; ibody < nlocal_body+nghost_body; ibody++)
+  {
     for (i = 0; i < 6; i++) itensor[ibody][i] = 0.0;
+    for (i = 0; i < 12; i++) espace_momment_of_inertia[ibody][i] = 0.0;
+  }
 
   double dx,dy,dz;
   double *inertia;
@@ -2138,6 +2144,9 @@ void FixRigidSmall::setup_bodies_static()
   double tensor[3][3],evectors[3][3];
   double *ex,*ey,*ez;
 
+  //double evectors_momment_of_inertia[4][3];
+  if (inpfile) readfile(2,espace_momment_of_inertia,inbody);
+
   for (ibody = 0; ibody < nlocal_body; ibody++) {
     tensor[0][0] = itensor[ibody][0];
     tensor[1][1] = itensor[ibody][1];
@@ -2163,19 +2172,53 @@ void FixRigidSmall::setup_bodies_static()
     ez[1] = evectors[1][2];
     ez[2] = evectors[2][2];
 
+    ex[0] =espace_momment_of_inertia[ibody][0];//evectors[0][0];
+    ex[1] =espace_momment_of_inertia[ibody][1];//evectors[1][0];
+    ex[2] =espace_momment_of_inertia[ibody][2];//evectors[2][0];
 
 
-    //  std::cout<<"\n";
+    ey[0] =espace_momment_of_inertia[ibody][3];//evectors[0][0];
+    ey[1] =espace_momment_of_inertia[ibody][4];//evectors[1][0];
+    ey[2] =espace_momment_of_inertia[ibody][5];//evectors[2][0];
+
+
+    ez[0] =espace_momment_of_inertia[ibody][6];//evectors[0][0];
+    ez[1] =espace_momment_of_inertia[ibody][7];//evectors[1][0];
+    ez[2] =espace_momment_of_inertia[ibody][8];//evectors[2][0];
+//////////for(int i=0;i<3;i++)
+//////////{
+//////////        std::cout<<espace_momment_of_inertia[ibody][i]<<"\t";
+//////////}
+//////////std::cout<<"\n";
+//////////for(int i=3;i<6;i++)
+//////////{
+//////////        std::cout<<espace_momment_of_inertia[ibody][i]<<"\t";
+//////////}
+//////////std::cout<<"\n";
+//////////for(int i=6;i<9;i++)
+//////////{
+//////////        std::cout<<espace_momment_of_inertia[ibody][i]<<"\t";
+//////////}
+//////////std::cout<<"\n";
+//////////for(int i=9;i<12;i++)
+//////////{
+//////////        std::cout<<espace_momment_of_inertia[ibody][i]<<"\t";
+//////////}
+//////////std::cout<<"\n";
+//////////std::cout<<"**********\n";
+
+
+    //std::cout<<"\n";
     //  std::cout<<"\n";
     //for(int i=0;i<6;i++)
     //{
     //        std::cout<<itensor[ibody][i]<<"\t";
     //}
     //std::cout<<"\n";
-      //for(int i=0;i<3;i++)
-      //{
-      //        std::cout<<inertia[i]<<"\t";
-      //}
+    //for(int i=0;i<3;i++)
+    //{
+    //        std::cout<<inertia[i]<<"\t";
+    //}
 
       //std::cout<<" EigenValuesCalculated by LAMMPS \n";
     //std::cout<<"\n";
@@ -2575,6 +2618,7 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
   auto buffer = new char[CHUNK*MAXLINE];
   int nread = 0;
   int me = comm->me;
+  //std::cout<<nlines<<std::endl;
 
   while (nread < nlines) {
     nchunk = MIN(nlines-nread,CHUNK);
@@ -2586,7 +2630,7 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
     *next = '\0';
     int nwords = utils::count_words(utils::trim_comment(buf));
     *next = '\n';
-
+    //std::cout<<nwords<<"\n";
     if (nwords != ATTRIBUTE_PERBODY)
       error->all(FLERR,"Incorrect rigid body format in fix {} file", style);
 
@@ -2632,7 +2676,7 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
           body[m].image = ((imageint) (xbox + IMGMAX) & IMGMASK) |
             (((imageint) (ybox + IMGMAX) & IMGMASK) << IMGBITS) |
             (((imageint) (zbox + IMGMAX) & IMGMASK) << IMG2BITS);
-        } else {
+        } else if(which == 1) {
           values.skip(4);
           array[m][0] = values.next_double();
           array[m][1] = values.next_double();
@@ -2641,6 +2685,33 @@ void FixRigidSmall::readfile(int which, double **array, int *inbody)
           array[m][4] = values.next_double();
           array[m][3] = values.next_double();
         }
+	else {
+		values.skip(19);
+		array[m][0] = values.next_double();
+		array[m][1] = values.next_double();
+		array[m][2] = values.next_double();
+
+
+		array[m][3] = values.next_double();
+		array[m][4] = values.next_double();
+		array[m][5] = values.next_double();
+
+
+		array[m][6] = values.next_double();
+		array[m][7] = values.next_double();
+		array[m][8] = values.next_double();
+
+
+		array[m][9] = values.next_double();
+		array[m][10] = values.next_double();
+		array[m][11] = values.next_double();
+////////for(int i =0; i<12; i++)
+////////{
+////////	std::cout<<array[m][i]<<"\t";
+////////}
+////////std::cout<<"\n";
+
+	}
       } catch (TokenizerException &e) {
         error->all(FLERR, "Invalid fix {} infile: {}", style, e.what());
       }
